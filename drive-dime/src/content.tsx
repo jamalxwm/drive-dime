@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
 
@@ -11,6 +11,8 @@ export const getStyle = () => {
   style.textContent = cssText
   return style
 }
+
+//const [matchedTokens, setMatchedTokens] = useState([])
 
 const observeTable = (updateCallback) => {
   const tableSelector = '.w-full.table-fixed';
@@ -48,8 +50,14 @@ const updateCallback = (addedNodes) => {
     if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'TR') {
       // Do something with the added TR elements
       // You would call your updateUIWithMatches here
-      const selector = `button[id^="button-map-column_${tokenID}"]`;
-      let button = document.querySelector(selector);
+      // let button = node.querySelector('button[id^="button-map-column_"]');
+      // if (button) {
+      //   let tokenID = button.id.replace('button-map-column_', '')
+      //   if (matchedTokens.includes(tokenID)) {
+      //     updateUIWithMatches([tokenID])
+      //   }
+      // }
+      
     }
   });
 };
@@ -86,6 +94,7 @@ const updateUIWithMatches = (matchedTokens) => {
 };
 
 const PlasmoOverlay = () => {
+ 
   useEffect(() => {
     document.head.appendChild(getStyle())
     const handleMessage = (event) => {
@@ -93,6 +102,7 @@ const PlasmoOverlay = () => {
         console.log('Content script received message:', event.data.text)
         
         updateUIWithMatches(event.data.data)
+        
       }
     }
 
