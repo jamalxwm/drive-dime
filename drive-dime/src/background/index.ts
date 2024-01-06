@@ -31,10 +31,11 @@ function monkeyPatch() {
 
       if (xhr.responseText) {
         try {
-          const trips = JSON.parse(xhr.responseText);
-          
-          if (Array.isArray(trips)) {
-            trips.forEach(function(trip) {
+          const everlancetrips = JSON.parse(xhr.responseText);
+          let matchedTrips = []
+
+          if (Array.isArray(everlancetrips)) {
+            everlancetrips.forEach(function(trip) {
               trip.dd_match_found = false;
               const tripStart = new Date(trip.started_at).toISOString()
               const tripEnd = new Date(trip.ended_at).toISOString()
@@ -42,13 +43,15 @@ function monkeyPatch() {
               doorDashDeliveries.forEach(function(delivery) {
                 if (timeRangesOverlap(tripStart, tripEnd, delivery.orderCreatedTime, delivery.deliveryTime)) {
                   trip.dd_match_found = true
+                  matchedTrips.push(trip.token_id)
                   console.log('Match!', trip.token_id)
                 }
               })
             })
             //console.log('Modified trips:', trips)
           }
-          console.log('Modified trips:', trips)
+          window.postMessage({type: "FROM_PAGE", text: "matches_found", data: matchedTrips}, "*")
+          console.log('Modified trips:', matchedTrips)
         } catch (error) {
           console.error('Error parsing JSON:', error);
           console.error('Received response:', xhr.responseText);

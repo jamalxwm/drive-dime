@@ -12,119 +12,76 @@ export const getStyle = () => {
   return style
 }
 
-function isTargetDate(dateString) {
-  const targetDate = new Date('Dec 31, 2023');
-  const cellDate = new Date(dateString);
-  return cellDate.getTime() === targetDate.getTime();
-}
-
-// function isTimeInRange(startTimeString, endTimeString) {
-//   const noon = new Date().setHours(12, 0, 0);
-//   const eightPm = new Date().setHours(20, 0, 0);
-
-//   const startTime = parseTime(startTimeString);
-//   const endTime = parseTime(endTimeString);
-
-//   return startTime >= noon && endTime <= eightPm;
-// }
-
-function parseTime(timeString) {
-  const [time, modifier] = timeString.split(' ');
-  let [hours, minutes] = time.split(':');
-  hours = parseInt(hours, 10);
-  minutes = parseInt(minutes, 10);
-
-  if (modifier === 'pm' && hours !== 12) hours += 12;
-  if (modifier === 'am' && hours === 12) hours = 0;
-
-  return new Date().setHours(hours, minutes, 0);
-}
-
-const showHelloWorld = () => {
-  const rows = document.querySelectorAll('.w-full.table-fixed tbody tr');
-  rows.forEach((row) => {
-    const dateCell = row.querySelector('td:nth-child(2) div');
-    const timeCells = row.querySelectorAll('[data-testid="location-address"] span')
-     //console.log(timeCells[0].textContent.trim())
-    if (dateCell) {
-      const dateString = dateCell.textContent.trim()
-      
-      if (isTargetDate(dateString)) {
-        const newCell = document.createElement('td');
-        newCell.textContent = 'Hello World';
-        row.appendChild(newCell)
-      }
-
-    }
-    
-  });
-};
-
-const observeTable = () => {
+const observeTable = (updateCallback) => {
   const table = document.querySelector('.w-full.table-fixed');
+  let observerAndTimeout = {
+    observer: null,
+    timeoutId: null
+  };
+
   if (!table) {
     console.log("Table not found, waiting to retry...");
-    setTimeout(observeTable, 500);
-    return;
+    observerAndTimeout.timeoutId = setTimeout(() => observeTable(updateCallback), 500);
+  } else {
+    observerAndTimeout.observer = new MutationObserver((mutationsList) => {
+      for (const mutation of mutationsList) {
+        if (mutation.type === 'childList') {
+          updateCallback();
+        }
+      }
+    });
+
+    observerAndTimeout.observer.observe(table, { childList: true, subtree: true });
   }
 
-  const observer = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
-      if (mutation.type === 'childList' && mutation.addedNodes.length > 0 && mutation.addedNodes[0].nodeName === 'TR') {
-        showHelloWorld();
-      }
-    }
-  });
-
-  observer.observe(table, { childList: true, subtree: true });
-
-  // Return the observer so it can be disconnected later
-  return observer;
+  // Return the object containing both the observer and the timeout ID
+  return observerAndTimeout;
 }
 
-// content.js
-// content.js - content script
-// document.addEventListener('DOMContentLoaded', function () {
-//   console.log('event listener call')
-//   const originalXHRSend = XMLHttpRequest.prototype.send;
-//   XMLHttpRequest.prototype.send = function(...args) {
-//     // Keep a reference to the XMLHttpRequest instance
-//     const xhr = this;
+const updateUIWithMatches = (matchedTokens) => {
+  matchedTokens.forEach(tokenID => {
+    const selector = `button[id^="button-map-column_${tokenID}"]`
 
-//     // Function to handle the response
-//     function logResponse() {
-//       if (xhr.readyState === 4 && xhr.status === 200) {
-//         // Log the response text
-//         console.log('XHR Response Body:', xhr.responseText);
-//         // You can send the response body to the background script if needed
-//         // chrome.runtime.sendMessage({response: xhr.responseText});
-//       }
-//     }
+    let button = document.querySelector(selector)
 
-//     // Listen for the readystatechange event
-//     this.addEventListener('readystatechange', logResponse, false);
+    let row = button ? button.closest('tr'): null
 
-//     // Call the original send method
-//     originalXHRSend.apply(this, args);
-//   };
-// });
+    if (row) {
+      row.classList.add('bg-green-200')
+      let newCell = row.insertCell(-1)
+      newCell.textContent = 'Match!'
+    }
+  })
+  console.log("in the match function")
+}
 
 const PlasmoOverlay = () => {
   useEffect(() => {
-    const observer = observeTable();
+    document.head.appendChild(getStyle())
+    const handleMessage = (event) => {
+      if (event.source === window && event.data.type && event.data.type === "FROM_PAGE") {
+        console.log('Content script received message:', event.data.text)
+        
+        updateUIWithMatches(event.data.data)
+      }
+    }
 
+    window.addEventListener("message", handleMessage, false)
+    const observerAndTimeout = observeTable(() => updateUIWithMatches([]))
     // Clean up the observer on component unmount
     return () => {
-      if (observer) {
-        observer.disconnect();
+      window.removeEventListener("message", handleMessage, false)
+      if (observerAndTimeout.timeoutId) {
+        clearTimeout(observerAndTimeout.timeoutId);
+      }
+      if (observerAndTimeout.observer) {
+        observerAndTimeout.observer.disconnect();
       }
     }
   }, []);
 
   return (
-    <div className="plasmo-z-50 plasmo-flex plasmo-fixed plasmo-top-32 plasmo-right-8">
-      <h1>Wikipedia TLDR!!</h1>
-    </div>
+    <div/>
   )
 }
 
